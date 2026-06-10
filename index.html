@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Calidad del Aire</title>
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+        }
+
+        h1 {
+            text-align: center;
+        }
+
+        .controls {
+            margin-bottom: 20px;
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        select {
+            padding: 8px;
+            font-size: 14px;
+        }
+
+        .chart-container {
+            width: 100%;
+            height: 600px;
+        }
+
+        #lastUpdated {
+            margin-top: 10px;
+            color: #666;
+        }
+    </style>
+</head>
+<body>
+
+<h1>Monitoreo de Calidad del Aire</h1>
+
+<div class="controls">
+    <select id="sensorSelect"></select>
+
+    <select id="metricSelect">
+        <option value="pm25">PM2.5</option>
+        <option value="pm10">PM10</option>
+        <option value="aqi">AQI</option>
+    </select>
+</div>
+
+<div class="chart-container">
+    <canvas id="pollutionChart"></canvas>
+</div>
+
+<div id="lastUpdated"></div>
+
+<script>
+
+let pollutionData = null;
+let chart = null;
+
+async function loadData() {
+
+    const response = await fetch("pollution.json");
+    pollutionData = await response.json();
+
+    document.getElementById("lastUpdated").innerHTML =
+        "Última actualización: " +
+        new Date(pollutionData.generated_at).toLocaleString();
+
+    populateSensors();
+
+    const firstSensor =
+        document.getElementById("sensorSelect").value;
+
+    drawChart(firstSensor, "pm25");
+}
+
+function populateSensors() {
+
+    const sensorSelect =
+        document.getElementById("sensorSelect");
+
+    sensorSelect.innerHTML = "";
+
+    Object.entries(pollutionData.sensors)
+        .forEach(([sensorId, sensorInfo]) => {
+
+            const option =
+                document.createElement("option");
+
+            option.value = sensorId;
+            option.textContent = sensorInfo.name;
+
+            sensorSelect.appendChild(option);
+        });
+}
+
+function drawChart(sensorId, metric) {
+
+    const sensor =
+        pollutionData.sensors[sensorId];
+
+    const labels =
+        sensor.data.map(item =>
+            new Date(item.timestamp)
+                .toLocaleString()
+        );
+
+    const values =
+        sensor.data.map(item =>
+            item[metric]
+        );
+
+    let label = metric;
+
+    if (metric === "pm25")
+        label = "PM2.5";
+
+    if (metric === "pm10")
+        label = "PM10";
+
+    if (metric === "aqi")
+        label = "AQI";
+
+    if (chart) {
+        chart.destroy();
+    }
+
+    chart = new Chart(
+        document.getElementById("pollutionChart"),
+        {
+            type: "line",
+
+            data: {
+                labels: labels,
+
+                datasets: [{
+                    label: label,
+                    data: values,
+                    tension: 0.2
+                }]
+            },
+
+            options: {
+
+                responsive: true,
+
+                maintainAspectRatio: false,
+
+                scales: {
+
+                    x: {
+                        title: {
+                            display: true,
+                            text: "Fecha y Hora"
+                        }
+                    },
+
+                    y: {
+                        title: {
+                            display: true,
+                            text: label
+                        }
+                    }
+                }
+            }
+        }
+    );
+}
+
+document.getElementById("sensorSelect")
+    .addEventListener("change", () => {
+
+        drawChart(
+            document.getElementById("sensorSelect").value,
+            document.getElementById("metricSelect").value
+        );
+    });
+
+document.getElementById("metricSelect")
+    .addEventListener("change", () => {
+
+        drawChart(
+            document.getElementById("sensorSelect").value,
+            document.getElementById("metricSelect").value
+        );
+    });
+
+loadData();
+
+</script>
+
+</body>
+</html>
