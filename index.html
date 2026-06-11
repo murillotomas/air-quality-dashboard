@@ -107,24 +107,17 @@ function drawChart(sensorId, metric) {
     const sensor =
         pollutionData.sensors[sensorId];
 
-    const step = 5;
-
-    const filteredData =
-        sensor.data.filter(
-            (_, index) => index % step === 0
-        );
-
     const labels =
-        filteredData.map(item =>
+        sensor.data.map(item =>
             new Date(item.timestamp)
                 .toLocaleString()
         );
 
     const values =
-        filteredData.map(item =>
+        sensor.data.map(item =>
             item[metric]
         );
-    
+
     let label = metric;
 
     if (metric === "pm25")
@@ -151,7 +144,6 @@ function drawChart(sensorId, metric) {
                 datasets: [{
                     label: label,
                     data: values,
-                    pointRadius: 0,
                     tension: 0.2
                 }]
             },
@@ -168,10 +160,6 @@ function drawChart(sensorId, metric) {
                         title: {
                             display: true,
                             text: "Fecha y Hora"
-                        },
-
-                        ticks: {
-                            maxTicksLimit: 8
                         }
                     },
 
