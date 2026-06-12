@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Comparación de Estaciones - Últimos 3 Días</title>
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <style>
+
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+        }
+
+        h1 {
+            text-align: center;
+        }
+
+        .controls {
+            margin-bottom: 20px;
+        }
+
+        select {
+            padding: 8px;
+            font-size: 14px;
+        }
+
+        .checkbox-container {
+            margin-top: 15px;
+            margin-bottom: 20px;
+
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+        }
+
+        .checkbox-container label {
+            white-space: nowrap;
+        }
+
+        .chart-container {
+            width: 100%;
+            height: 600px;
+        }
+
+        #lastUpdated {
+            margin-top: 10px;
+            color: #666;
+        }
+
+    </style>
+
+</head>
+<body>
+
+<h1>Comparación de Estaciones Meteorológicas</h1>
+
+<div class="controls">
+
+    <select id="metricSelect">
+        <option value="pm25">PM2.5</option>
+        <option value="pm10">PM10</option>
+        <option value="aqi">AQI</option>
+    </select>
+
+</div>
+
+<div id="stationCheckboxes"
+     class="checkbox-container">
+</div>
+
+<div class="chart-container">
+    <canvas id="comparisonChart"></canvas>
+</div>
+
+<div id="lastUpdated"></div>
+
+<script>
+
+let pollutionData = null;
+let chart = null;
+
+async function loadData() {
+
+    const response = await fetch("pollution.json");
+
+    pollutionData = await response.json();
+
+    document.getElementById("lastUpdated").innerHTML =
+        "Última actualización: " +
+        new Date(
+            pollutionData.generated_at
+        ).toLocaleString();
+
+    createStationCheckboxes();
+
+    drawChart("pm25");
+}
+
+function createStationCheckboxes() {
+
+    const container =
+        document.getElementById(
+            "stationCheckboxes"
+        );
+
+    container.innerHTML = "";
+
+    Object.entries(
+        pollutionData.sensors
+    ).forEach(([sensorId, sensorInfo]) => {
+
+        const label =
+            document.createElement("label");
+
+        const checkbox =
+            document.createElement("input");
+
+        checkbox.type = "checkbox";
+        checkbox.value = sensorId;
+        checkbox.checked = true;
+
+        checkbox.addEventListener(
+            "change",
+            () => drawChart(
+                document.getElementById(
+                    "metricSelect"
+                ).value
+            )
+        );
+
+        label.appendChild(checkbox);
+
+        label.appendChild(
+            document.createTextNode(
+                " " + sensorInfo.name
+            )
+        );
+
+        container.appendChild(label);
+    });
+}
+
+function getSelectedSensors() {
+
+    return Array.from(
+        document.querySelectorAll(
+            "#stationCheckboxes input:checked"
+        )
+    ).map(
+        checkbox => checkbox.value
+    );
+}
+
+function drawChart(metric) {
+
+    const selectedSensors =
+        getSelectedSensors();
+
+    const datasets = [];
+
+    selectedSensors.forEach(sensorId => {
+
+        const sensorInfo =
+            pollutionData.sensors[sensorId];
+
+        datasets.push({
+
+            label: sensorInfo.name,
+
+            data: sensorInfo.data.map(
+                item => item[metric]
+            ),
+
+            tension: 0.2,
+
+            pointRadius: 0,
+
+            borderWidth: 2
+        });
+    });
+
+    const firstSensor =
+        Object.values(
+            pollutionData.sensors
+        )[0];
+
+    const labels =
+        firstSensor.data.map(item =>
+            new Date(
+                item.timestamp
+            ).toLocaleString()
+        );
+
+    let metricLabel = metric;
+
+    if (metric === "pm25")
+        metricLabel = "PM2.5";
+
+    if (metric === "pm10")
+        metricLabel = "PM10";
+
+    if (metric === "aqi")
+        metricLabel = "AQI";
+
+    if (chart) {
+        chart.destroy();
+    }
+
+    chart = new Chart(
+        document.getElementById(
+            "comparisonChart"
+        ),
+        {
+
+            type: "line",
+
+            data: {
+                labels: labels,
+                datasets: datasets
+            },
+
+            options: {
+
+                responsive: true,
+
+                maintainAspectRatio: false,
+
+                interaction: {
+                    mode: 'index',
+                    intersect: false
+                },
+
+                plugins: {
+
+                    legend: {
+                        display: true,
+                        position: 'top'
+                    },
+
+                    title: {
+                        display: true,
+                        text:
+                            metricLabel +
+                            " - Comparación entre estaciones (Últimos 3 días)"
+                    }
+                },
+
+                scales: {
+
+                    x: {
+
+                        title: {
+                            display: true,
+                            text: "Fecha y Hora"
+                        },
+
+                        ticks: {
+                            maxTicksLimit: 10
+                        }
+                    },
+
+                    y: {
+
+                        title: {
+                            display: true,
+                            text: metricLabel
+                        }
+                    }
+                }
+            }
+        }
+    );
+}
+
+document.getElementById(
+    "metricSelect"
+).addEventListener(
+    "change",
+    () => drawChart(
+        document.getElementById(
+            "metricSelect"
+        ).value
+    )
+);
+
+loadData();
+
+</script>
+
+</body>
+</html>
